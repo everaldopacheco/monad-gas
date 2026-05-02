@@ -181,9 +181,10 @@ async function startSearch() {
     const divisor = 10n ** 18n;
     const whole = totalWei / divisor;
     const frac = totalWei % divisor;
-    const exactMon = whole.toString() + '.' + frac.toString().padStart(18, '0');
-
-    showResult({ addr, totalWei, exactMon, sentCount: hashes.length, displayNonce: nonce });
+    const monFormatted = formatMon(`${whole}.${frac.toString().padStart(18, '0')}`, 10);
+    const weiFormatted = totalWei.toLocaleString('en-US');
+    
+    showResult({ addr, totalWei, weiFormatted, monFormatted, sentCount: hashes.length, displayNonce: nonce });
   } catch (err) {
     closeModal();
     errorEl.textContent = '⚠ Network timeout. Please try again.';
@@ -194,20 +195,19 @@ async function startSearch() {
   }
 }
 
-function showResult({ addr, totalWei, exactMon, sentCount, displayNonce }) {
-  const monFloat = parseFloat(exactMon);
+function showResult({ addr, totalWei, weiFormatted, monFormatted, sentCount, displayNonce }) {
+  const monFloat = parseFloat(monFormatted.replace(/,/g, '').replace('…', ''));
   const tier = getTier(monFloat);
-  const monFormatted = formatMon(exactMon);
   
   const html = `
     <div class="modal-result">
-      <div class="result-label">Wallet Analysis (100% Precise)</div>
+      <div class="result-label">Precise Network Analysis</div>
       <div class="wallet-display">${addr}</div>
 
       <div class="gas-block">
         <div class="gas-label">Total Gas Spent</div>
         <div class="gas-value">${monFormatted} <span>MON</span></div>
-        <div class="gas-meta">${totalWei.toLocaleString()} wei</div>
+        <div class="gas-meta">${weiFormatted} wei</div>
         <div class="tier-badge ${tier.cls}">${tier.label}</div>
       </div>
 
