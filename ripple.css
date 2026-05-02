@@ -1,0 +1,27 @@
+/* ─── Magic UI Ripple Effect (Vanilla Implementation) ─── */
+.ripple-wrapper {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ripple-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(131, 110, 249, 0.1);
+  background: transparent;
+  transform: scale(0);
+  animation: ripple-pulse var(--d) linear infinite;
+  opacity: 0;
+}
+
+@keyframes ripple-pulse {
+  0% { transform: scale(0.1); opacity: 0; }
+  10% { opacity: 0.6; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
