@@ -4,96 +4,41 @@
 const CONFIG = {
   // Public RPC endpoints — Monad mainnet chain 143
   rpcs: [
+    'https://rpc.monad.xyz', // Official Monad RPC
     'https://monad-mainnet.drpc.org',
     'https://monad.drpc.org',
     'https://rpc.ankr.com/monad_mainnet',
   ],
   // MonadScan (Etherscan-compatible)
-  monadScanApi: 'https://api.monadscan.com/api',
-  // Etherscan V2 with Monad chainid
+  // MonadScan has migrated to Etherscan V2 infrastructure
+  monadScanApi: 'https://api.monadscan.com/api', 
   etherscanV2Api: 'https://api.etherscan.io/v2/api',
   monadChainId: '143',
   explorerUrl: 'https://monadscan.com',
   // SocialScan
-  socialScanApi: 'https://api.socialscan.io/monad/v1/explorer/command_api',
-  // CORS proxies (tried in order for each request)
+  socialScanApi: 'https://api.socialscan.io/monad-mainnet/v1/explorer',
+  // CORS proxies
   corsProxies: [
     u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
     u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
     u => `https://proxy.cors.sh/${u}`,
   ],
-  maxPages: 50,
-  pageSize: 10000,
-  socialScanPageSize: 25, // SocialScan often has smaller limits
+  maxPages: 20, // Reduced to avoid long timeouts
+  pageSize: 1000, // Reduced for better stability
+  socialScanPageSize: 50,
 };
 
 // ═══════════════════════════════════════════════
 //  TIER SYSTEM
 // ═══════════════════════════════════════════════
 const TIERS = [
-  {
-    min: 10,
-    cls: 'tier-fire',
-    label: '🔥 ABSOLUTE DEGEN',
-    emoji: '🔥',
-    title: 'You are a living legend on Monad!',
-    msg: 'Over 10 MON in gas? You don\'t use the network — you ARE the network. Absolute degen, Monad owes you a monument.',
-    sub: 'Top 0.1% gas spenders'
-  },
-  {
-    min: 5,
-    cls: 'tier-fire',
-    label: '🚀 ULTRA DEGEN',
-    emoji: '🚀',
-    title: 'Congrats, you\'re a true degen!',
-    msg: 'You went too far and nobody stopped you. Monad recorded every single wei with love.',
-    sub: 'Level: Ultra degen'
-  },
-  {
-    min: 1,
-    cls: 'tier-legend',
-    label: '💜 OFFICIAL DEGEN',
-    emoji: '💜',
-    title: 'Degen status confirmed by the network.',
-    msg: 'You\'ve made things happen on Monad. Wallets like yours keep the ecosystem spinning. Respect.',
-    sub: 'Well above average'
-  },
-  {
-    min: 0.1,
-    cls: 'tier-gold',
-    label: '⚡ ACTIVE & CONSISTENT',
-    emoji: '⚡',
-    title: 'You\'re in the game!',
-    msg: 'Not the biggest degen, but well on your way. Keep going — the ecosystem needs active players like you.',
-    sub: 'Above average'
-  },
-  {
-    min: 0.01,
-    cls: 'tier-silver',
-    label: '🌀 EXPLORING',
-    emoji: '🌀',
-    title: 'Warming up the engines...',
-    msg: 'You\'re exploring Monad carefully. Nothing wrong with that — every degen starts this way.',
-    sub: 'Explorer profile'
-  },
-  {
-    min: 0.001,
-    cls: 'tier-bronze',
-    label: '🐾 JUST STARTING',
-    emoji: '🐾',
-    title: 'First steps on Monad!',
-    msg: 'You showed up, made a few transactions, and you\'re here checking. The beginning of a great degen journey.',
-    sub: 'Early adopter in training'
-  },
-  {
-    min: 0,
-    cls: 'tier-newbie',
-    label: '🐣 NEWBIE',
-    emoji: '🐣',
-    title: 'Welcome to the ecosystem!',
-    msg: 'You just arrived and you\'re already checking your gas. Curiosity is the first step. Monad awaits you.',
-    sub: 'Journey started'
-  },
+  { min: 10,    cls: 'tier-fire',   label: '🔥 ABSOLUTE DEGEN', emoji: '🔥', title: 'Living Legend', msg: 'Over 10 MON spent on gas. You are the network.', sub: 'Top 0.1%' },
+  { min: 5,     cls: 'tier-fire',   label: '🚀 ULTRA DEGEN',    emoji: '🚀', title: 'Ultra Degen',   msg: 'You went too far. Monad recorded every wei with love.', sub: 'Level: Ultra' },
+  { min: 1,     cls: 'tier-legend', label: '💜 OFFICIAL DEGEN', emoji: '💜', title: 'Degen Status',  msg: 'You\'ve made things happen. Respect.', sub: 'Degen confirmed' },
+  { min: 0.1,   cls: 'tier-gold',   label: '⚡ ACTIVE',          emoji: '⚡', title: 'In the Game',   msg: 'Keep going, the ecosystem needs you.', sub: 'Active player' },
+  { min: 0.01,  cls: 'tier-silver', label: '🌀 EXPLORING',       emoji: '🌀', title: 'Warming Up',   msg: 'Exploring Monad carefully.', sub: 'Explorer' },
+  { min: 0.001, cls: 'tier-bronze', label: '🐾 STARTING',        emoji: '🐾', title: 'First Steps',  msg: 'The beginning of your journey.', sub: 'Early adopter' },
+  { min: 0,     cls: 'tier-newbie', label: '🐣 NEWBIE',          emoji: '🐣', title: 'Welcome',      msg: 'Curiosity is the first step.', sub: 'New arrival' },
 ];
 
 function getTier(mon) {
@@ -104,17 +49,9 @@ function getTier(mon) {
 // ═══════════════════════════════════════════════
 //  UTILITIES & NORMALIZATION
 // ═══════════════════════════════════════════════
-function isAddress(v) {
-  return /^0x[0-9a-fA-F]{40}$/.test(v.trim());
-}
+function isAddress(v) { return /^0x[0-9a-fA-F]{40}$/.test(v.trim()); }
+function shortAddr(addr) { return addr.slice(0, 6) + '…' + addr.slice(-4); }
 
-function shortAddr(addr) {
-  return addr.slice(0, 6) + '…' + addr.slice(-4);
-}
-
-/**
- * Ensures all transaction objects from different sources are uniform.
- */
 function normalizeTx(tx) {
   return {
     hash:              tx.hash || tx.txHash || tx.transactionHash || '',
@@ -131,63 +68,34 @@ function weiToMon(weiStr) {
   if (!weiStr || weiStr === '0') return 0;
   try {
     const n = BigInt(weiStr);
-    if (n === 0n) return 0;
     const divisor = 10n ** 18n;
-    const whole   = n / divisor;
-    const frac    = n % divisor;
-    const fracStr = frac.toString().padStart(18, '0');
-    return parseFloat(whole.toString() + '.' + fracStr);
-  } catch (e) {
-    console.error('BigInt conversion error for weiStr:', weiStr, e);
-    return 0;
-  }
+    const whole = n / divisor;
+    const frac = n % divisor;
+    return parseFloat(whole.toString() + '.' + frac.toString().padStart(18, '0'));
+  } catch (e) { return 0; }
 }
 
 function formatMon(val) {
   if (val === 0) return '0.000000';
-  if (val < 0.0000001) return val.toExponential(4) + ' (< 0.0000001)';
-  if (val < 0.000001)  return val.toFixed(10);
-  if (val < 0.001)     return val.toFixed(8);
-  if (val < 1)         return val.toFixed(6);
-  if (val < 1000)      return val.toFixed(4);
-  return val.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (val < 0.000001) return val.toFixed(10);
+  if (val < 1) return val.toFixed(6);
+  return val.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-function formatTxCount(n) {
-  return n.toLocaleString('en-US');
-}
+function formatTxCount(n) { return n.toLocaleString('en-US'); }
 
 // ═══════════════════════════════════════════════
-//  MODAL & UI
+//  UI HELPERS
 // ═══════════════════════════════════════════════
 function openModal(html) {
   const overlay = document.getElementById('modalOverlay');
-  const content = document.getElementById('modalContent');
-  if (content && overlay) {
-    content.innerHTML = html;
-    overlay.classList.add('open');
-  }
+  document.getElementById('modalContent').innerHTML = html;
+  overlay.classList.add('open');
 }
 
-function closeModal() {
-  const overlay = document.getElementById('modalOverlay');
-  if (overlay) overlay.classList.remove('open');
-}
-
-function handleOverlayClick(e) {
-  if (e.target === document.getElementById('modalOverlay')) closeModal();
-}
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-});
-
-const walletInput = document.getElementById('walletInput');
-if (walletInput) {
-  walletInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') startSearch();
-  });
-}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function handleOverlayClick(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 function setLoadingStatus(msg) {
   const el = document.getElementById('loadingStatus');
@@ -198,19 +106,19 @@ function showLoading(addr) {
   openModal(`
     <div class="modal-loading">
       <div class="spinner"></div>
-      <div class="loading-label">Fetching on-chain data...</div>
-      <div class="loading-status" id="loadingStatus">Initializing connection...</div>
+      <div class="loading-label">Analyzing Activity...</div>
+      <div class="loading-status" id="loadingStatus">Scanning network nodes...</div>
     </div>
   `);
 }
 
 // ═══════════════════════════════════════════════
-//  CORS-AWARE FETCH LAYER
+//  FETCH LAYER
 // ═══════════════════════════════════════════════
-function raceTimeout(promise, ms) {
+async function raceTimeout(promise, ms) {
   return Promise.race([
     promise,
-    new Promise((_, rej) => setTimeout(() => rej(new Error('Request timed out')), ms))
+    new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), ms))
   ]);
 }
 
@@ -220,7 +128,7 @@ async function parseRes(res, proxyFn) {
   if (proxyFn && proxyFn('x').includes('allorigins')) {
     try {
       const wrapper = JSON.parse(text);
-      if (wrapper.contents !== undefined) return JSON.parse(wrapper.contents);
+      if (wrapper.contents) return JSON.parse(wrapper.contents);
     } catch (_) {}
   }
   return JSON.parse(text);
@@ -234,34 +142,19 @@ async function fetchJSON(url, ms = 15000) {
 
   for (const proxyFn of CONFIG.corsProxies) {
     try {
-      const proxied = proxyFn(url);
-      const res = await raceTimeout(fetch(proxied, { headers: { Accept: 'application/json' } }), ms);
+      const res = await raceTimeout(fetch(proxyFn(url), { headers: { Accept: 'application/json' } }), ms);
       return await parseRes(res, proxyFn);
     } catch (_) {}
   }
-
-  throw new Error(`Connection failed. The API might be down or blocked.`);
-}
-
-async function fetchPost(url, body, ms = 8000) {
-  try {
-    const res = await raceTimeout(fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(body),
-    }), ms);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (_) {
-    return null;
-  }
+  throw new Error('Connection failed');
 }
 
 async function rpcCall(method, params) {
   const body = { jsonrpc: '2.0', id: 1, method, params };
   for (const rpc of CONFIG.rpcs) {
     try {
-      const data = await fetchPost(rpc, body);
+      const res = await fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
       if (data && data.result !== undefined) return data.result;
     } catch (_) {}
   }
@@ -269,184 +162,130 @@ async function rpcCall(method, params) {
 }
 
 // ═══════════════════════════════════════════════
-//  GAS CALCULATION
-// ═══════════════════════════════════════════════
-function txGasWei(tx) {
-  try {
-    const gasUsed = BigInt(tx.gasUsed || '0');
-    if (gasUsed === 0n) return 0n;
-    const gasPrice = BigInt(tx.effectiveGasPrice || tx.gasPrice || '0');
-    return gasUsed * gasPrice;
-  } catch (e) {
-    console.error('Error calculating gas for tx:', tx.hash, e);
-    return 0n;
-  }
-}
-
-function calcTotalGas(txs, address) {
-  const addrLow = address.toLowerCase();
-  let totalWei = 0n;
-  let sentCount = 0;
-
-  for (const tx of txs) {
-    if (tx.from !== addrLow) continue;
-    const cost = txGasWei(tx);
-    totalWei += cost;
-    sentCount++;
-  }
-  return { totalWei, sentCount };
-}
-
-// ═══════════════════════════════════════════════
-//  DATA SOURCES
+//  API SOURCES
 // ═══════════════════════════════════════════════
 async function fetchMonadScan(address, onProgress) {
   let allTxs = [];
   let page = 1;
-
   while (page <= CONFIG.maxPages) {
     onProgress(`MonadScan · Page ${page}…`);
-    const url = `${CONFIG.monadScanApi}?module=account&action=txlist&address=${address}&startblock=0&endblock=latest&page=${page}&offset=${CONFIG.pageSize}&sort=asc`;
-
-    const data = await fetchJSON(url);
-    if (!data || data.status === '0') break;
-    if (data.status === '1' && Array.isArray(data.result)) {
-      const normalized = data.result.map(normalizeTx);
-      allTxs = allTxs.concat(normalized);
-      if (data.result.length < CONFIG.pageSize) break;
-      page++;
-    } else {
-      break;
-    }
+    // Try V2 structure first if possible, otherwise V1
+    const url = `${CONFIG.monadScanApi}?chainid=${CONFIG.monadChainId}&module=account&action=txlist&address=${address}&page=${page}&offset=${CONFIG.pageSize}&sort=asc`;
+    
+    try {
+      const data = await fetchJSON(url);
+      if (!data) break;
+      // Handle standard Etherscan success
+      if (data.status === '1' && Array.isArray(data.result)) {
+        allTxs = allTxs.concat(data.result.map(normalizeTx));
+        if (data.result.length < CONFIG.pageSize) break;
+        page++;
+      } else if (data.status === '0' && data.message === 'No transactions found') {
+        break;
+      } else {
+        // Log "NOTOK" or other errors but don't crash yet
+        console.warn('MonadScan API Message:', data.result || data.message);
+        break;
+      }
+    } catch (e) { break; }
   }
-  return allTxs.length > 0 ? allTxs : null;
-}
-
-async function fetchEtherscanV2(address, onProgress) {
-  let allTxs = [];
-  let page = 1;
-
-  while (page <= CONFIG.maxPages) {
-    onProgress(`Etherscan V2 · Page ${page}…`);
-    const url = `${CONFIG.etherscanV2Api}?chainid=${CONFIG.monadChainId}&module=account&action=txlist&address=${address}&startblock=0&endblock=latest&page=${page}&offset=${CONFIG.pageSize}&sort=asc`;
-
-    const data = await fetchJSON(url);
-    if (!data || data.status === '0') break;
-    if (data.status === '1' && Array.isArray(data.result)) {
-      const normalized = data.result.map(normalizeTx);
-      allTxs = allTxs.concat(normalized);
-      if (data.result.length < CONFIG.pageSize) break;
-      page++;
-    } else {
-      break;
-    }
-  }
-  return allTxs.length > 0 ? allTxs : null;
+  return allTxs;
 }
 
 async function fetchSocialScan(address, onProgress) {
   let allTxs = [];
   let page = 1;
-  const size = CONFIG.socialScanPageSize;
-
-  while (page <= 200) { // Safety limit for smaller pages
+  while (page <= 5) { // Limited fallback
     onProgress(`SocialScan · Page ${page}…`);
-    const url = `${CONFIG.socialScanApi}/address/${address}/transactions?page=${page}&size=${size}&sort=asc`;
-
-    const data = await fetchJSON(url);
-    const list = data?.data?.transactions || data?.data?.list || data?.result || data?.transactions || [];
-    if (!Array.isArray(list) || list.length === 0) break;
-
-    const normalized = list.map(normalizeTx);
-    allTxs = allTxs.concat(normalized);
-    if (list.length < size) break;
-    page++;
+    const url = `${CONFIG.socialScanApi}/address/${address}/transactions?page=${page}&size=${CONFIG.socialScanPageSize}`;
+    try {
+      const data = await fetchJSON(url);
+      const list = data?.data?.transactions || data?.result || [];
+      if (!Array.isArray(list) || list.length === 0) break;
+      allTxs = allTxs.concat(list.map(normalizeTx));
+      if (list.length < CONFIG.socialScanPageSize) break;
+      page++;
+    } catch (e) { break; }
   }
-  return allTxs.length > 0 ? allTxs : null;
+  return allTxs;
 }
 
 async function fetchAllTxs(address, onProgress) {
+  let bestResult = { txs: [], source: 'None' };
+  
   const sources = [
-    { name: 'MonadScan',     fn: fetchMonadScan },
-    { name: 'Etherscan V2',  fn: fetchEtherscanV2 },
-    { name: 'SocialScan',    fn: fetchSocialScan },
+    { name: 'MonadScan', fn: fetchMonadScan },
+    { name: 'SocialScan', fn: fetchSocialScan },
   ];
 
-  const errors = [];
   for (const { name, fn } of sources) {
     try {
-      onProgress(`Connecting to ${name}…`);
+      onProgress(`Querying ${name}…`);
       const txs = await fn(address, onProgress);
-      if (txs) {
-        console.log(`[GasTracker] ${name} returned ${txs.length} txs`);
+      if (txs && txs.length > 0) {
         return { txs, source: name };
       }
-    } catch (err) {
-      console.warn(`[GasTracker] ${name} attempt failed:`, err.message);
-      errors.push(`${name}: ${err.message}`);
-    }
+    } catch (e) { console.error(`Source ${name} failed:`, e); }
   }
 
-  throw new Error(`Data retrieval failed.\n${errors.join('\n')}`);
+  return bestResult; // Return empty if nothing found
 }
 
 // ═══════════════════════════════════════════════
-//  MAIN SEARCH & RENDER
+//  MAIN
 // ═══════════════════════════════════════════════
 async function startSearch() {
-  const input   = document.getElementById('walletInput');
+  const input = document.getElementById('walletInput');
   const errorEl = document.getElementById('errorMsg');
-  const btn     = document.getElementById('searchBtn');
-  if (!input || !errorEl || !btn) return;
+  const btn = document.getElementById('searchBtn');
+  if (!input || !btn) return;
 
   const addr = input.value.trim();
   errorEl.textContent = '';
 
-  if (!addr) {
-    errorEl.textContent = '⚠ Please enter a wallet address.';
-    return;
-  }
   if (!isAddress(addr)) {
-    errorEl.textContent = '⚠ Invalid address. Use 0x... format.';
+    errorEl.textContent = '⚠ Please enter a valid 0x address.';
     return;
   }
 
-  const originalBtnText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Searching...';
+  const originalText = btn.textContent;
+  btn.textContent = '...';
   showLoading(addr);
 
   try {
-    setLoadingStatus('Verifying wallet state…');
+    setLoadingStatus('Checking RPC Nonce…');
     const txCountHex = await rpcCall('eth_getTransactionCount', [addr, 'latest']);
-    const nonceRpc   = txCountHex !== null ? parseInt(txCountHex, 16) : null;
+    const nonce = txCountHex ? parseInt(txCountHex, 16) : 0;
 
-    setLoadingStatus('Synchronizing history…');
+    setLoadingStatus('Fetching History…');
     const { txs, source } = await fetchAllTxs(addr, msg => setLoadingStatus(msg));
 
-    setLoadingStatus('Aggregating data…');
-    const { totalWei, sentCount } = calcTotalGas(txs, addr);
-    const monValue = weiToMon(totalWei.toString());
-    const displayNonce = nonceRpc !== null ? nonceRpc : sentCount;
+    setLoadingStatus('Calculating…');
+    let totalWei = 0n;
+    txs.forEach(tx => {
+      if (tx.from === addr.toLowerCase()) {
+        try { totalWei += BigInt(tx.gasUsed) * BigInt(tx.effectiveGasPrice || tx.gasPrice); } catch (e) {}
+      }
+    });
 
-    showResult({ addr, totalWei, monValue, sentCount, displayNonce, source });
+    const monValue = weiToMon(totalWei.toString());
+    showResult({ addr, totalWei, monValue, sentCount: txs.filter(t => t.from === addr.toLowerCase()).length, displayNonce: nonce, source });
   } catch (err) {
     closeModal();
-    errorEl.textContent = `⚠ ${err.message.split('\n')[0]}`;
-    console.error('[GasTracker] Error:', err);
+    errorEl.textContent = '⚠ Network congestion. Please try again.';
+    console.error(err);
   } finally {
     btn.disabled = false;
-    btn.textContent = originalBtnText;
+    btn.textContent = originalText;
   }
 }
 
 function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source }) {
-  const tier         = getTier(monValue);
+  const tier = getTier(monValue);
   const monFormatted = formatMon(monValue);
-  const weiDisplay   = totalWei > 0n ? totalWei.toLocaleString() : '0';
   const explorerLink = `${CONFIG.explorerUrl}/address/${addr}`;
-  const safeTitle    = tier.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-
+  
   const html = `
     <div class="modal-result">
       <div class="result-label">Analyzed Wallet</div>
@@ -455,7 +294,7 @@ function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source 
       <div class="gas-block">
         <div class="gas-label">Total Gas Spent</div>
         <div class="gas-value">${monFormatted} <span>MON</span></div>
-        <div class="gas-meta">${weiDisplay} wei</div>
+        <div class="gas-meta">${totalWei.toLocaleString()} wei</div>
         <div class="tier-badge ${tier.cls}">${tier.label}</div>
       </div>
 
@@ -466,21 +305,15 @@ function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source 
       </div>
 
       <div class="stats-row">
-        <div class="stat-box">
-          <div class="stat-key">Txs Sent</div>
-          <div class="stat-val">${formatTxCount(sentCount)}</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-key">RPC Nonce</div>
-          <div class="stat-val">${displayNonce !== null ? formatTxCount(displayNonce) : '—'}</div>
-        </div>
+        <div class="stat-box"><div class="stat-key">Txs Found</div><div class="stat-val">${sentCount}</div></div>
+        <div class="stat-box"><div class="stat-key">RPC Nonce</div><div class="stat-val">${displayNonce}</div></div>
       </div>
 
-      <div class="source-note">Verified via ${source}</div>
+      <div class="source-note">Data from ${source === 'None' ? 'RPC (estimated)' : source}</div>
 
       <div class="modal-actions">
         <button class="btn-ghost" onclick="window.open('${explorerLink}', '_blank')">Explorer ↗</button>
-        <button class="btn-primary-sm" onclick="copyResult('${monFormatted}', '${safeTitle}', '${tier.emoji}')">Copy Result</button>
+        <button class="btn-primary-sm" onclick="copyResult('${monFormatted}', '${tier.title}', '${tier.emoji}')">Copy Result</button>
       </div>
     </div>
   `;
@@ -492,8 +325,8 @@ function copyResult(mon, title, emoji) {
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.querySelector('.btn-primary-sm');
     if (btn) {
-      btn.textContent = 'Copied! ✓';
+      btn.textContent = 'Copied!';
       setTimeout(() => btn.textContent = 'Copy Result', 2000);
     }
-  }).catch(console.error);
+  });
 }
