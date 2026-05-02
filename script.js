@@ -24,15 +24,15 @@ const CONFIG = {
 // ═══════════════════════════════════════════════
 function isAddress(v) { return /^0x[0-9a-fA-F]{40}$/.test(v.trim()); }
 
-function formatMon(monStr, maxDec = 8) {
+function formatMon(monStr, maxDec = 4) {
   const parts = monStr.split('.');
   const whole = BigInt(parts[0]).toLocaleString('en-US');
   let frac = parts[1] || '0';
   frac = frac.replace(/0+$/, '');
   if (frac.length > maxDec) {
-    return `${whole}.${frac.slice(0, maxDec)}…`;
+    return `${whole}.${frac.slice(0, maxDec)}`;
   }
-  return `${whole}.${frac.padEnd(6, '0')}`;
+  return `${whole}.${frac.padEnd(maxDec, '0')}`;
 }
 
 // ═══════════════════════════════════════════════
@@ -181,7 +181,7 @@ async function startSearch() {
     const divisor = 10n ** 18n;
     const whole = totalWei / divisor;
     const frac = totalWei % divisor;
-    const monFormatted = formatMon(`${whole}.${frac.toString().padStart(18, '0')}`, 10);
+    const monFormatted = formatMon(`${whole}.${frac.toString().padStart(18, '0')}`, 4);
     const weiFormatted = totalWei.toLocaleString('en-US');
     
     showResult({ addr, totalWei, weiFormatted, monFormatted, sentCount: hashes.length, displayNonce: nonce });
