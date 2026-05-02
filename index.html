@@ -1,80 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monad Gas Tracker - Analyze Your Gas Spending on Monad</title>
-  <meta name="description" content="Track your total gas spent on the Monad network since the genesis block. Analyze transaction history and see your degen status." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="ripple.css" />
-</head>
-<body>
-
-<div class="ripple-wrapper" id="ripple">
-  <div class="ripple-circle" style="--d: 4s; width: 200px; height: 200px; animation-delay: 0s;"></div>
-  <div class="ripple-circle" style="--d: 4s; width: 400px; height: 400px; animation-delay: 0.5s;"></div>
-  <div class="ripple-circle" style="--d: 4s; width: 600px; height: 600px; animation-delay: 1s;"></div>
-  <div class="ripple-circle" style="--d: 4s; width: 800px; height: 800px; animation-delay: 1.5s;"></div>
-  <div class="ripple-circle" style="--d: 4s; width: 1000px; height: 1000px; animation-delay: 2s;"></div>
-  <div class="ripple-circle" style="--d: 4s; width: 1200px; height: 1200px; animation-delay: 2.5s;"></div>
-</div>
-
-<div class="wrapper">
-
-  <div class="logo-area">
-    <div class="logo-dot"></div>
-    <span class="logo-text">Monad Mainnet · Chain 143</span>
-  </div>
-
-  <h1>Gas <span>Tracker</span></h1>
-  <p class="subtitle">// how much gas have you spent since block 0?</p>
-
-  <div class="network-pill">
-    <span class="nl"></span>
-    monad mainnet · live
-  </div>
-
-  <div class="search-area">
-    <div class="input-row">
-      <div class="input-wrap">
-        <input
-          id="walletInput"
-          type="text"
-          placeholder="0x..."
-          spellcheck="false"
-          autocomplete="off"
-        />
-      </div>
-      <button class="btn-search" id="searchBtn" onclick="startSearch()">
-        Search
-      </button>
-    </div>
-    <p class="error-msg" id="errorMsg"></p>
-  </div>
-
-  <div class="hint-row">
-    <span class="hint-chip"><span class="dot"></span>Gas tracked since genesis block</span>
-    <span class="hint-chip"><span class="dot"></span>Data via MonadScan + RPC</span>
-    <span class="hint-chip"><span class="dot"></span>Result in MON</span>
-  </div>
-
-</div>
-
-<!-- ─── MODAL ─── -->
-<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
-  <div class="modal" id="modal">
-    <button class="modal-close" onclick="closeModal()" title="Fechar">✕</button>
-    <div id="modalContent"></div>
-  </div>
-</div>
-
-<footer class="site-footer">
-  Built by <a href="https://x.com/everaldoSRN" target="_blank" rel="noopener noreferrer">everaldo.mon</a>
-</footer>
-
-<script src="script.js"></script>
-</body>
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monad Gas Tracker - Analyze Your Gas Spending on Monad</title>
+    <meta name="description" content="Track your total gas spent on the Monad network since the genesis block." />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
