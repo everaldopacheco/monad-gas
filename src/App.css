@@ -266,8 +266,9 @@ h1 span { color: var(--accent-color); }
   padding: 2.5rem 2rem;
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
   position: relative;
-  transform: translateY(0) scale(1);
   animation: modalIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 40px 80px rgba(0,0,0,0.5);
 }
@@ -471,6 +472,92 @@ h1 span { color: var(--accent-color); }
   color: var(--warn);
   text-align: center;
   margin-bottom: 1rem;
+}
+
+/* ─── Share Section ─── */
+.share-section {
+  margin-bottom: 1.2rem;
+  padding: 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.share-label {
+  font-size: 0.65rem;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  margin-bottom: 0.8rem;
+}
+
+.share-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.share-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.share-btn svg {
+  flex-shrink: 0;
+}
+
+.share-twitter {
+  border-color: rgba(29, 155, 240, 0.3);
+  color: #1d9bf0;
+}
+.share-twitter:hover {
+  background: rgba(29, 155, 240, 0.12);
+  border-color: rgba(29, 155, 240, 0.5);
+}
+
+.share-warpcast {
+  border-color: rgba(131, 110, 249, 0.3);
+  color: var(--accent-color);
+}
+.share-warpcast:hover {
+  background: rgba(131, 110, 249, 0.12);
+  border-color: rgba(131, 110, 249, 0.5);
+}
+
+.share-telegram {
+  border-color: rgba(38, 165, 227, 0.3);
+  color: #26a5e4;
+}
+.share-telegram:hover {
+  background: rgba(38, 165, 227, 0.12);
+  border-color: rgba(38, 165, 227, 0.5);
+}
+
+.share-whatsapp {
+  border-color: rgba(37, 211, 102, 0.3);
+  color: #25d366;
+}
+.share-whatsapp:hover {
+  background: rgba(37, 211, 102, 0.12);
+  border-color: rgba(37, 211, 102, 0.5);
 }
 
 /* ─── Actions ─── */
