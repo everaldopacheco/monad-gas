@@ -398,11 +398,14 @@ h1 span {
 }
 
 .gas-value {
-  font-size: clamp(2rem, 8vw, 3.2rem);
+  font-size: clamp(1.8rem, 7vw, 2.8rem);
   font-weight: 800;
   letter-spacing: -0.04em;
   color: var(--text);
-  line-height: 1;
+  line-height: 1.1;
+  text-align: center;
+  word-break: break-all;
+  max-width: 100%;
 }
 
 .gas-value span {

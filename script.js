@@ -24,14 +24,15 @@ const CONFIG = {
 // ═══════════════════════════════════════════════
 function isAddress(v) { return /^0x[0-9a-fA-F]{40}$/.test(v.trim()); }
 
-function formatMon(monStr) {
+function formatMon(monStr, maxDec = 8) {
   const parts = monStr.split('.');
-  const whole = parseInt(parts[0]).toLocaleString('en-US');
+  const whole = BigInt(parts[0]).toLocaleString('en-US');
   let frac = parts[1] || '0';
-  // Remove trailing zeros for cleaner look, but keep at least 6 decimals
   frac = frac.replace(/0+$/, '');
-  if (frac.length < 6) frac = frac.padEnd(6, '0');
-  return `${whole}.${frac}`;
+  if (frac.length > maxDec) {
+    return `${whole}.${frac.slice(0, maxDec)}…`;
+  }
+  return `${whole}.${frac.padEnd(6, '0')}`;
 }
 
 // ═══════════════════════════════════════════════
