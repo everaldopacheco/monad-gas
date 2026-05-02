@@ -12,7 +12,7 @@ const CONFIG = {
     u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
     u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
   ],
-  maxPages: 200, // Increased for stability
+  maxPages: 200, 
   pageSize: 100,
   batchSize: 20,
   maxRetries: 3,
@@ -40,7 +40,6 @@ function openModal(html) {
   document.getElementById('modalContent').innerHTML = html;
   overlay.classList.add('open');
 }
-
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 function handleOverlayClick(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
 
@@ -49,37 +48,40 @@ function setLoadingStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-function showLoading(addr) {
+function showLoading() {
   openModal(`
     <div class="modal-loading">
       <div class="spinner"></div>
-      <div class="loading-label">Deterministic Scan</div>
-      <div class="loading-status" id="loadingStatus">Scanning network...</div>
+      <div class="loading-label">High-Stability Sync</div>
+      <div class="loading-status" id="loadingStatus">Connecting...</div>
     </div>
   `);
 }
 
 // ═══════════════════════════════════════════════
-//  DATA FETCHING (ROBUST)
+//  FETCHING
 // ═══════════════════════════════════════════════
 
 async function fetchWithRetry(url, ms = 15000) {
+  // Add cache buster
+  const buster = `&_cb=${Date.now()}`;
+  let currentUrl = url + buster;
   let lastErr;
+
   for (let i = 0; i < CONFIG.maxRetries; i++) {
     try {
       const res = await Promise.race([
-        fetch(url, { headers: { Accept: 'application/json' } }),
+        fetch(currentUrl, { headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' } }),
         new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), ms))
       ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data && data.contents) return JSON.parse(data.contents); // AllOrigins
+      if (data && data.contents) return JSON.parse(data.contents);
       return data;
     } catch (e) {
       lastErr = e;
-      // Try next proxy on next retry
       const proxyFn = CONFIG.corsProxies[i % CONFIG.corsProxies.length];
-      url = proxyFn(url.includes('?url=') ? decodeURIComponent(url.split('?url=')[1]) : url);
+      currentUrl = proxyFn(url) + buster;
     }
   }
   throw lastErr;
@@ -113,42 +115,55 @@ async function startSearch() {
   }
 
   btn.disabled = true;
-  showLoading(addr);
+  showLoading();
 
   try {
-    setLoadingStatus('Synchronizing with nodes…');
+    setLoadingStatus('Verifying Nonce via RPC…');
     const txCountHex = await (async () => {
       for (const rpc of CONFIG.rpcs) {
         try {
           const res = await fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({jsonrpc:"2.0", id:1, method:"eth_getTransactionCount", params:[addr, "latest"]}) });
           const data = await res.json();
-          return data.result;
+          if (data.result) return data.result;
         } catch (_) {}
       }
       return '0x0';
     })();
     const nonce = parseInt(txCountHex, 16);
 
-    setLoadingStatus('Gathering history…');
+    setLoadingStatus(`Target: ${nonce} transactions…`);
     let hashSet = new Set();
     let page = 1;
-    let apiTotal = 0;
+    let consecutiveEmpties = 0;
 
+    // Scan until we find at least 'nonce' transactions sent by the user
     while (page <= CONFIG.maxPages) {
-      setLoadingStatus(`Indexing (Page ${page})…`);
+      setLoadingStatus(`Scanning (Found ${hashSet.size}/${nonce})…`);
       const data = await fetchWithRetry(`${CONFIG.socialScanApi}/address/${addr}/transactions?page=${page}&size=${CONFIG.pageSize}&sort=desc`);
       const list = data?.data || [];
-      if (list.length === 0) break;
+      
+      if (list.length === 0) {
+        consecutiveEmpties++;
+        if (consecutiveEmpties >= 2) break; // Hard stop if no data on two consecutive pages
+      } else {
+        consecutiveEmpties = 0;
+        list.forEach(tx => {
+          if (tx.from_address?.toLowerCase() === addrLow) {
+            hashSet.add(tx.hash);
+          }
+        });
+      }
 
-      apiTotal = data.total || apiTotal;
-      list.forEach(tx => {
-        if (tx.from_address?.toLowerCase() === addrLow) {
-          hashSet.add(tx.hash);
-        }
-      });
-
-      if (list.length < CONFIG.pageSize) break;
+      // If we found everything or hit the end of explorer history
+      if (hashSet.size >= nonce || list.length < CONFIG.pageSize) {
+        // Special case: sometimes explorer shows more due to multi-call or pending
+        if (hashSet.size >= nonce) break;
+        if (list.length < CONFIG.pageSize) break;
+      }
+      
       page++;
+      // Safety pause to avoid rate limits
+      await new Promise(r => setTimeout(r, 100));
     }
 
     const hashes = Array.from(hashSet);
@@ -157,7 +172,7 @@ async function startSearch() {
     let totalWei = 0n;
     for (let i = 0; i < hashes.length; i += CONFIG.batchSize) {
       const batch = hashes.slice(i, i + CONFIG.batchSize);
-      setLoadingStatus(`Verifying receipts (${i}/${hashes.length})…`);
+      setLoadingStatus(`Fetching Receipts (${i}/${hashes.length})…`);
       const receipts = await rpcBatch(batch.map(h => ({ method: 'eth_getTransactionReceipt', params: [h] })));
       receipts.forEach(r => {
         if (r && r.gasUsed && (r.effectiveGasPrice || r.gasPrice)) {
@@ -179,7 +194,7 @@ async function startSearch() {
     });
   } catch (err) {
     closeModal();
-    errorEl.textContent = '⚠ History scan inconsistent. Try again.';
+    errorEl.textContent = '⚠ Sync failed. The network is busy.';
   } finally {
     btn.disabled = false;
   }
@@ -191,7 +206,7 @@ function showResult({ addr, totalWei, monFormatted, sentCount, displayNonce, int
   
   const html = `
     <div class="modal-result">
-      <div class="result-label">Deterministic Analysis</div>
+      <div class="result-label">Stable High-Precision Sync</div>
       <div class="wallet-display">${addr}</div>
 
       <div class="gas-block">
@@ -218,7 +233,7 @@ function showResult({ addr, totalWei, monFormatted, sentCount, displayNonce, int
         </div>
       </div>
 
-      ${!integrity ? '<div class="integrity-warn">⚠ Explorer history is lagging. Some txs might be missing.</div>' : ''}
+      ${!integrity ? '<div class="integrity-warn">⚠ Some transactions are still being indexed by the explorer.</div>' : ''}
 
       <div class="modal-actions">
         <button class="btn-ghost" onclick="window.open('${CONFIG.explorerUrl}/address/${addr}', '_blank')">Explorer ↗</button>
