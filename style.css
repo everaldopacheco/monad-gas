@@ -624,6 +624,18 @@ h1 span {
   transform: translateY(0) scale(0.98);
 }
 
+.warn-text { color: var(--warn) !important; }
+.integrity-warn {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--warn);
+  text-align: center;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+  padding: 0 1rem;
+  line-height: 1.4;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 480px) {
   .input-row { flex-direction: column; }
