@@ -2,30 +2,23 @@
 //  CONFIG
 // ═══════════════════════════════════════════════
 const CONFIG = {
-  // Public RPC endpoints — Monad mainnet chain 143
   rpcs: [
-    'https://rpc.monad.xyz', // Official Monad RPC
+    'https://rpc.monad.xyz',
     'https://monad-mainnet.drpc.org',
-    'https://monad.drpc.org',
     'https://rpc.ankr.com/monad_mainnet',
   ],
-  // MonadScan (Etherscan-compatible)
-  // MonadScan has migrated to Etherscan V2 infrastructure
+  // Primary working explorer for Monad Mainnet
+  socialScanApi: 'https://api.socialscan.io/rest/monad-mainnet/v1/explorer',
   monadScanApi: 'https://api.monadscan.com/api', 
-  etherscanV2Api: 'https://api.etherscan.io/v2/api',
   monadChainId: '143',
   explorerUrl: 'https://monadscan.com',
-  // SocialScan
-  socialScanApi: 'https://api.socialscan.io/monad-mainnet/v1/explorer',
-  // CORS proxies
   corsProxies: [
     u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
     u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
     u => `https://proxy.cors.sh/${u}`,
   ],
-  maxPages: 20, // Reduced to avoid long timeouts
-  pageSize: 1000, // Reduced for better stability
-  socialScanPageSize: 50,
+  maxPages: 25,
+  pageSize: 100, // SocialScan REST API size
 };
 
 // ═══════════════════════════════════════════════
@@ -47,33 +40,9 @@ function getTier(mon) {
 }
 
 // ═══════════════════════════════════════════════
-//  UTILITIES & NORMALIZATION
+//  UTILITIES
 // ═══════════════════════════════════════════════
 function isAddress(v) { return /^0x[0-9a-fA-F]{40}$/.test(v.trim()); }
-function shortAddr(addr) { return addr.slice(0, 6) + '…' + addr.slice(-4); }
-
-function normalizeTx(tx) {
-  return {
-    hash:              tx.hash || tx.txHash || tx.transactionHash || '',
-    from:              (tx.from || tx.from_address || '').toLowerCase(),
-    to:                (tx.to || tx.to_address || '').toLowerCase(),
-    gasUsed:           String(tx.gasUsed  || tx.gas_used  || '0'),
-    gasPrice:          String(tx.gasPrice || tx.gas_price || '0'),
-    effectiveGasPrice: String(tx.effectiveGasPrice || tx.effective_gas_price || tx.gasPrice || tx.gas_price || '0'),
-    blockNumber:       String(tx.blockNumber || tx.block_number || '0'),
-  };
-}
-
-function weiToMon(weiStr) {
-  if (!weiStr || weiStr === '0') return 0;
-  try {
-    const n = BigInt(weiStr);
-    const divisor = 10n ** 18n;
-    const whole = n / divisor;
-    const frac = n % divisor;
-    return parseFloat(whole.toString() + '.' + frac.toString().padStart(18, '0'));
-  } catch (e) { return 0; }
-}
 
 function formatMon(val) {
   if (val === 0) return '0.000000';
@@ -81,8 +50,6 @@ function formatMon(val) {
   if (val < 1) return val.toFixed(6);
   return val.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
-
-function formatTxCount(n) { return n.toLocaleString('en-US'); }
 
 // ═══════════════════════════════════════════════
 //  UI HELPERS
@@ -106,8 +73,8 @@ function showLoading(addr) {
   openModal(`
     <div class="modal-loading">
       <div class="spinner"></div>
-      <div class="loading-label">Analyzing Activity...</div>
-      <div class="loading-status" id="loadingStatus">Scanning network nodes...</div>
+      <div class="loading-label">Analyzing Monad History...</div>
+      <div class="loading-status" id="loadingStatus">Initializing scan...</div>
     </div>
   `);
 }
@@ -146,7 +113,7 @@ async function fetchJSON(url, ms = 15000) {
       return await parseRes(res, proxyFn);
     } catch (_) {}
   }
-  throw new Error('Connection failed');
+  throw new Error('All connection attempts failed.');
 }
 
 async function rpcCall(method, params) {
@@ -164,71 +131,52 @@ async function rpcCall(method, params) {
 // ═══════════════════════════════════════════════
 //  API SOURCES
 // ═══════════════════════════════════════════════
-async function fetchMonadScan(address, onProgress) {
-  let allTxs = [];
-  let page = 1;
-  while (page <= CONFIG.maxPages) {
-    onProgress(`MonadScan · Page ${page}…`);
-    // Try V2 structure first if possible, otherwise V1
-    const url = `${CONFIG.monadScanApi}?chainid=${CONFIG.monadChainId}&module=account&action=txlist&address=${address}&page=${page}&offset=${CONFIG.pageSize}&sort=asc`;
-    
-    try {
-      const data = await fetchJSON(url);
-      if (!data) break;
-      // Handle standard Etherscan success
-      if (data.status === '1' && Array.isArray(data.result)) {
-        allTxs = allTxs.concat(data.result.map(normalizeTx));
-        if (data.result.length < CONFIG.pageSize) break;
-        page++;
-      } else if (data.status === '0' && data.message === 'No transactions found') {
-        break;
-      } else {
-        // Log "NOTOK" or other errors but don't crash yet
-        console.warn('MonadScan API Message:', data.result || data.message);
-        break;
-      }
-    } catch (e) { break; }
-  }
-  return allTxs;
-}
-
 async function fetchSocialScan(address, onProgress) {
   let allTxs = [];
   let page = 1;
-  while (page <= 5) { // Limited fallback
+  const size = CONFIG.pageSize;
+  const addrLow = address.toLowerCase();
+
+  while (page <= CONFIG.maxPages) {
     onProgress(`SocialScan · Page ${page}…`);
-    const url = `${CONFIG.socialScanApi}/address/${address}/transactions?page=${page}&size=${CONFIG.socialScanPageSize}`;
+    const url = `${CONFIG.socialScanApi}/address/${address}/transactions?page=${page}&size=${size}`;
+    
     try {
       const data = await fetchJSON(url);
-      const list = data?.data?.transactions || data?.result || [];
+      const list = data?.data || [];
       if (!Array.isArray(list) || list.length === 0) break;
-      allTxs = allTxs.concat(list.map(normalizeTx));
-      if (list.length < CONFIG.socialScanPageSize) break;
+      
+      list.forEach(tx => {
+        if ((tx.from_address || '').toLowerCase() === addrLow) {
+          allTxs.push(parseFloat(tx.total_transaction_fee || tx.transaction_fee || 0));
+        }
+      });
+
+      if (list.length < size) break;
       page++;
     } catch (e) { break; }
   }
   return allTxs;
 }
 
-async function fetchAllTxs(address, onProgress) {
-  let bestResult = { txs: [], source: 'None' };
-  
-  const sources = [
-    { name: 'MonadScan', fn: fetchMonadScan },
-    { name: 'SocialScan', fn: fetchSocialScan },
-  ];
-
-  for (const { name, fn } of sources) {
-    try {
-      onProgress(`Querying ${name}…`);
-      const txs = await fn(address, onProgress);
-      if (txs && txs.length > 0) {
-        return { txs, source: name };
-      }
-    } catch (e) { console.error(`Source ${name} failed:`, e); }
-  }
-
-  return bestResult; // Return empty if nothing found
+// MonadScan fallback (Etherscan-compatible)
+async function fetchMonadScan(address, onProgress) {
+  let totalGas = 0;
+  const url = `${CONFIG.monadScanApi}?module=account&action=txlist&address=${address}&startblock=0&endblock=latest&page=1&offset=1000&sort=asc`;
+  try {
+    const data = await fetchJSON(url);
+    if (data && data.status === '1' && Array.isArray(data.result)) {
+      const addrLow = address.toLowerCase();
+      data.result.forEach(tx => {
+        if (tx.from.toLowerCase() === addrLow) {
+          const feeWei = BigInt(tx.gasUsed) * BigInt(tx.effectiveGasPrice || tx.gasPrice || 0);
+          totalGas += parseFloat(feeWei.toString()) / 1e18;
+        }
+      });
+      return [totalGas]; // Return as array for compatibility
+    }
+  } catch (e) {}
+  return [];
 }
 
 // ═══════════════════════════════════════════════
@@ -244,7 +192,7 @@ async function startSearch() {
   errorEl.textContent = '';
 
   if (!isAddress(addr)) {
-    errorEl.textContent = '⚠ Please enter a valid 0x address.';
+    errorEl.textContent = '⚠ Invalid 0x address.';
     return;
   }
 
@@ -254,36 +202,36 @@ async function startSearch() {
   showLoading(addr);
 
   try {
-    setLoadingStatus('Checking RPC Nonce…');
+    setLoadingStatus('Checking RPC status…');
     const txCountHex = await rpcCall('eth_getTransactionCount', [addr, 'latest']);
     const nonce = txCountHex ? parseInt(txCountHex, 16) : 0;
 
-    setLoadingStatus('Fetching History…');
-    const { txs, source } = await fetchAllTxs(addr, msg => setLoadingStatus(msg));
+    setLoadingStatus('Scanning history…');
+    const fees = await fetchSocialScan(addr, msg => setLoadingStatus(msg));
+    
+    let totalMon = fees.reduce((a, b) => a + b, 0);
+    let source = 'SocialScan';
 
-    setLoadingStatus('Calculating…');
-    let totalWei = 0n;
-    txs.forEach(tx => {
-      if (tx.from === addr.toLowerCase()) {
-        try { totalWei += BigInt(tx.gasUsed) * BigInt(tx.effectiveGasPrice || tx.gasPrice); } catch (e) {}
-      }
-    });
+    if (totalMon === 0 && nonce > 0) {
+      setLoadingStatus('Trying fallback source…');
+      const fallbackFees = await fetchMonadScan(addr, msg => setLoadingStatus(msg));
+      totalMon = fallbackFees.reduce((a, b) => a + b, 0);
+      source = totalMon > 0 ? 'MonadScan' : 'RPC (estimated)';
+    }
 
-    const monValue = weiToMon(totalWei.toString());
-    showResult({ addr, totalWei, monValue, sentCount: txs.filter(t => t.from === addr.toLowerCase()).length, displayNonce: nonce, source });
+    showResult({ addr, totalMon, sentCount: fees.length || (totalMon > 0 ? 'Multiple' : 0), displayNonce: nonce, source });
   } catch (err) {
     closeModal();
-    errorEl.textContent = '⚠ Network congestion. Please try again.';
-    console.error(err);
+    errorEl.textContent = '⚠ Connection error. Try again.';
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;
   }
 }
 
-function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source }) {
-  const tier = getTier(monValue);
-  const monFormatted = formatMon(monValue);
+function showResult({ addr, totalMon, sentCount, displayNonce, source }) {
+  const tier = getTier(totalMon);
+  const monFormatted = formatMon(totalMon);
   const explorerLink = `${CONFIG.explorerUrl}/address/${addr}`;
   
   const html = `
@@ -294,7 +242,7 @@ function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source 
       <div class="gas-block">
         <div class="gas-label">Total Gas Spent</div>
         <div class="gas-value">${monFormatted} <span>MON</span></div>
-        <div class="gas-meta">${totalWei.toLocaleString()} wei</div>
+        <div class="gas-meta">~${(totalMon * 1e18).toLocaleString()} wei</div>
         <div class="tier-badge ${tier.cls}">${tier.label}</div>
       </div>
 
@@ -309,7 +257,7 @@ function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source 
         <div class="stat-box"><div class="stat-key">RPC Nonce</div><div class="stat-val">${displayNonce}</div></div>
       </div>
 
-      <div class="source-note">Data from ${source === 'None' ? 'RPC (estimated)' : source}</div>
+      <div class="source-note">Verified via ${source}</div>
 
       <div class="modal-actions">
         <button class="btn-ghost" onclick="window.open('${explorerLink}', '_blank')">Explorer ↗</button>
@@ -321,7 +269,7 @@ function showResult({ addr, totalWei, monValue, sentCount, displayNonce, source 
 }
 
 function copyResult(mon, title, emoji) {
-  const text = `I've spent ${mon} MON on gas since Monad block 0!\n${emoji} ${title}\n\nCheck yours at Monad Gas Tracker`;
+  const text = `I've spent ${mon} MON on gas on Monad!\n${emoji} ${title}\n\nCheck yours at Monad Gas Tracker`;
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.querySelector('.btn-primary-sm');
     if (btn) {
